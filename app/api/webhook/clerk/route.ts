@@ -70,6 +70,15 @@ export const POST = async (request: Request) => {
 
     try {
       // @ts-ignore
+
+      console.log( "webhook-data" ,  id,
+        name,
+        slug,
+        logo_url || image_url,
+        "org bio",
+        created_by)
+        
+
       await createCommunity(
         // @ts-ignore
         id,

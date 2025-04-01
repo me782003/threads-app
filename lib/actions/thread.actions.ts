@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import Thread from "../Models/thread.model";
 import User from "../Models/user.model";
 import { connectToDB } from "../mongoose";
+import Community from "../Models/community.model";
 
 interface Params {
   text: string;
@@ -20,16 +21,29 @@ export async function CreateThread({
   try {
     connectToDB();
 
+    const communityIdObject = await Community.findOne(
+      { id: communityId },
+      { _id: 1 }
+    );
+
     const createdThread = await Thread.create({
       text,
       author,
-      community: null,
+      community: communityIdObject,
     });
 
-    // TODO: Update user model
+    //  Update user model
     await User.findByIdAndUpdate(author, {
       $push: { threads: createdThread._id },
     });
+
+    if (communityIdObject) {
+      // Update Community model
+      await Community.findByIdAndUpdate(communityIdObject, {
+        $push: { threads: createdThread._id },
+      });
+    }
+
     revalidatePath(path);
   } catch (err: any) {
     throw new Error(`Error creating thread: ${err.message}`);
@@ -79,55 +93,57 @@ export async function fetchPosts(pageNumber = 1, pageSize = 20) {
   };
 }
 
+export async function fetchThreadById(id: string) {
+  //connect to db
+  connectToDB();
 
-export async function fetchThreadById(id: string){
-   //connect to db
-   connectToDB();
-
-   try{
+  try {
     // TODO: POPULATE COMMUNITY
-    const thread = await Thread.findById(id).populate({
-      path:"author",
-      model:User,
-      select: "_id id name image"
-    })
-    .populate({
-      path: "children", // Populate the children field
-      populate: [
-        {
-          path: "author", // Populate the author field within children
-          model: User,
-          select: "_id id name parentId image", // Select only _id and username fields of the author
-        },
-        {
-          path: "children", // Populate the children field within children
-          model: Thread, // The model of the nested children (assuming it's the same "Thread" model)
-          populate: {
-            path: "author", // Populate the author field within nested children
+    const thread = await Thread.findById(id)
+      .populate({
+        path: "author",
+        model: User,
+        select: "_id id name image",
+      })
+      .populate({
+        path: "children", // Populate the children field
+        populate: [
+          {
+            path: "author", // Populate the author field within children
             model: User,
             select: "_id id name parentId image", // Select only _id and username fields of the author
           },
-        },
-      ],
-    }).exec()
+          {
+            path: "children", // Populate the children field within children
+            model: Thread, // The model of the nested children (assuming it's the same "Thread" model)
+            populate: {
+              path: "author", // Populate the author field within nested children
+              model: User,
+              select: "_id id name parentId image", // Select only _id and username fields of the author
+            },
+          },
+        ],
+      })
+      .exec();
     return thread;
-
-   }catch (error: any) {
+  } catch (error: any) {
     throw new Error(`Failed to fetch thread by id: ${error?.message}`);
-   }
-
+  }
 }
 
-export async function addCommentToThread(threadId:string , commentText:string , userId:string , path:string){
+export async function addCommentToThread(
+  threadId: string,
+  commentText: string,
+  userId: string,
+  path: string
+) {
   //connect to db
   connectToDB();
-  try{
-
-
+  try {
     // Find the original thread by its id
-    const originalthread = await Thread.findById(threadId)
+    const originalthread = await Thread.findById(threadId);
 
-    if(!originalthread) throw new Error(`Could not find thread`);
+    if (!originalthread) throw new Error(`Could not find thread`);
 
     // Create a new comment object with the provided text and the author's id
 
@@ -135,9 +151,9 @@ export async function addCommentToThread(threadId:string , commentText:string , 
       text: commentText,
       author: userId,
       parentId: threadId,
-    })
+    });
 
-    //save the new thread 
+    //save the new thread
     const savedCommentThread = await commentThread.save();
 
     //update original thread to include the new comment
@@ -145,9 +161,7 @@ export async function addCommentToThread(threadId:string , commentText:string , 
     await originalthread.save();
 
     revalidatePath(path);
-
-
-  }catch (error:any) {
+  } catch (error: any) {
     throw new Error(`Failed to add comment to thread: ${error?.message}`);
   }
 }

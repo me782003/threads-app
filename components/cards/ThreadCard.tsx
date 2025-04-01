@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { formatDateString } from "../../lib/utils";
 
 // import { formatDateString } from "@/lib/utils";
 // import DeleteThread from "../forms/DeleteThread";
@@ -156,7 +157,7 @@ function ThreadCard({
         </div>
       )}
 
-      {/* {!isComment && community && (
+      {!isComment && community && (
         <Link
           href={`/communities/${community.id}`}
           className='mt-5 flex items-center'
@@ -174,7 +175,7 @@ function ThreadCard({
             className='ml-1 rounded-full object-cover'
           />
         </Link>
-      )} */}
+      )}
     </article>
   );
 }
